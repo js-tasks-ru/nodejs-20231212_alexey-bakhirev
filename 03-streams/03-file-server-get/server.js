@@ -1,24 +1,58 @@
-const url = require('url');
-const http = require('http');
-const path = require('path');
+const http = require('node:http');
+const path = require('node:path');
+const fs = require('node:fs');
 
 const server = new http.Server();
 
-server.on('request', (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname.slice(1);
+function getSendOnlyCodeFun(response) {
+  return (code) => {
+    response.statusCode = code;
+    response.end();
+  };
+}
 
-  const filepath = path.join(__dirname, 'files', pathname);
+function sendFile(res, filePath) {
+  const stream = fs.createReadStream(filePath);
 
-  switch (req.method) {
-    case 'GET':
+  stream.pipe(res);
 
-      break;
+  res.on(['end', 'close'], () => {
+    stream.close();
+  });
 
-    default:
-      res.statusCode = 501;
-      res.end('Not implemented');
+  stream.on('error', () => {
+    res.end();
+  });
+}
+
+server.on('request', async (req, res) => {
+  const sendCode = getSendOnlyCodeFun(res);
+
+  if (req.method !== 'GET') {
+    sendCode(501);
+    return;
   }
+
+  const pathParts = req.url.split('/').slice(1);
+  if (pathParts.length !== 1) {
+    sendCode(400);
+    return;
+  }
+
+  const filepath = path.join(__dirname, 'files', pathParts[0]);
+  fs.stat(filepath, (err, stat) => {
+    if (err || stat.isFIFO()) {
+      sendCode(404);
+      return;
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': stat.size,
+    });
+
+    sendFile(res, filepath);
+  });
 });
 
 module.exports = server;

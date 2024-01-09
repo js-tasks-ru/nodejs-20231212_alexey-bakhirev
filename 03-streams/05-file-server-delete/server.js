@@ -1,24 +1,45 @@
-const url = require('url');
-const http = require('http');
-const path = require('path');
+const http = require('node:http');
+const path = require('node:path');
+const fs = require('node:fs');
 
 const server = new http.Server();
 
-server.on('request', (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname.slice(1);
+function getSendOnlyCodeFun(response) {
+  return (code) => {
+    response.statusCode = code;
+    response.end();
+  };
+}
 
-  const filepath = path.join(__dirname, 'files', pathname);
+server.on('request', async (req, res) => {
+  const sendCode = getSendOnlyCodeFun(res);
 
-  switch (req.method) {
-    case 'DELETE':
-
-      break;
-
-    default:
-      res.statusCode = 501;
-      res.end('Not implemented');
+  if (req.method !== 'DELETE') {
+    sendCode(501);
+    return;
   }
+
+  const pathParts = req.url.split('/').slice(1);
+  if (pathParts.length !== 1) {
+    sendCode(400);
+    return;
+  }
+
+  const filepath = path.join(__dirname, 'files', pathParts[0]);
+  fs.stat(filepath, (err, stat) => {
+    if (err || stat.isFIFO()) {
+      sendCode(404);
+      return;
+    }
+
+    fs.unlink(filepath, (err) => {
+      if (err) {
+        sendCode(500);
+      } else {
+        sendCode(200);
+      }
+    });
+  });
 });
 
 module.exports = server;
