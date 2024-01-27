@@ -19,7 +19,7 @@ describe('mongodb-mongoose/schema-model', () => {
 
     it('поле title имеет правильную конфигурацию', () => {
       const title = Category.schema.obj.title;
-      console.log(title.type);
+
       expect(title.type, 'title - строковое поле').to.eql(String);
       expect(title.required, 'title - обязательное поле').to.be.true;
     });
@@ -70,7 +70,7 @@ describe('mongodb-mongoose/schema-model', () => {
 
     it('поле category имеет правильную конфигурацию', () => {
       const category = Product.schema.obj.category;
-      console.dir(category);
+
       expect(category.type, 'category - ObjectId').to.eql(mongoose.Schema.Types.ObjectId);
       expect(category.required, 'category - обязательное поле').to.be.true;
     });
